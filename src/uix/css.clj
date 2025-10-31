@@ -134,8 +134,8 @@
       (catch FileNotFoundException e
         (spit output-to out)))))
 
-(defn write-bundles! [state]
-  (let [output-dir (->> state :shadow.build/config :output-dir)
+(defn write-bundles! [state {:keys [output-dir]}]
+  (let [output-dir (or output-dir (->> state :shadow.build/config :output-dir))
         build-sources (->> (:build-sources state)
                            (map second)
                            (filter string?)
@@ -174,10 +174,10 @@
        (map :uix/css)
        (apply merge)))
 
-(defn write-styles! [state]
+(defn write-styles! [state config]
   (binding [*build-state* state]
     (write-modules! (build-state->styles-reg state))
-    (write-bundles! state)))
+    (write-bundles! state config)))
 
 (defn eval-symbol [env v]
   (let [ast (ana-api/resolve env v)]
@@ -310,8 +310,8 @@
 
 (defn hook
   {:shadow.build/stage :compile-finish}
-  [build-state]
-  (write-styles! build-state)
+  [build-state config]
+  (write-styles! build-state config)
   build-state)
 
 (defmethod ana/error-message ::global-styles-dynamic-vars [_ _]
