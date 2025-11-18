@@ -1,0 +1,34 @@
+name: Test
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: true
+      matrix:
+        os: [ubuntu-latest]
+
+    steps:
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl nodejs npm
+          curl -s "https://get.sdkman.io" | bash
+          source "/home/runner/.sdkman/bin/sdkman-init.sh"
+          sdk install java 25.0.1-graalce
+          curl -L -O https://github.com/clojure/brew-install/releases/latest/download/linux-install.sh
+          chmod +x linux-install.sh
+          sudo ./linux-install.sh
+
+      - name: Run tests
+        run: |
+          clojure -A:dev -M -m core-test

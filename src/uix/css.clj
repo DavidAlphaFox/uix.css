@@ -310,7 +310,7 @@
 
 (defn hook
   {:shadow.build/stage :compile-finish}
-  [build-state config]
+  [build-state & [config]]
   (write-styles! build-state config)
   build-state)
 

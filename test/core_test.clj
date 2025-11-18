@@ -10,7 +10,7 @@
         ".core-test-10-10:hover > div{border-radius:32px;}"
         "@media (max-width: 800px){.core-test-10-10{color:yellow;width:17px;}.core-test-10-10:hover{color:yellow;width:var(--core-test-20-57);}}"
         "\n"
-        "/*# sourceMappingURL=out.css.map */"]
+        "/*# sourceMappingURL=test.css.map */"]
        (str/join "")))
 
 (def css-out-release
@@ -19,24 +19,24 @@
         ".k1:hover > div{border-radius:32px;}"
         "@media (max-width: 800px){.k1{color:yellow;width:17px;}.k1:hover{color:yellow;width:var(--v3);}}"
         "\n"
-        "/*# sourceMappingURL=out.css.map */"]
+        "/*# sourceMappingURL=test.css.map */"]
        (str/join "")))
 
 (defn after []
-  (.delete (io/file "out.css"))
-  (.delete (io/file "out.css.map"))
+  (.delete (io/file "out/test.css"))
+  (.delete (io/file "out/test.css.map"))
   (run! io/delete-file (reverse (file-seq (io/file ".styles"))))
   (run! io/delete-file (reverse (file-seq (io/file ".shadow-cljs"))))
-  (run! io/delete-file (reverse (file-seq (io/file "public")))))
+  (run! io/delete-file (reverse (file-seq (io/file "out")))))
 
 (deftest test-css-compilation
   (testing "generated CSS should match snapshot"
     (shadow.cljs.devtools.cli/-main "compile" "test")
-    (is (= css-out (slurp "out.css")))
+    (is (= css-out (slurp "out/test.css")))
     (after))
   (testing "generated minified CSS should match snapshot"
     (shadow.cljs.devtools.cli/-main "release" "test")
-    (is (= css-out-release (slurp "out.css")))
+    (is (= css-out-release (slurp "out/test.css")))
     (after)))
 
 (defn -main [& args]
