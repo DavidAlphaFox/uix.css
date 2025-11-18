@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.1
+
+- Added Reagent adapter
+- Added output-dir to build config
+
 ## 0.3.0
 
 - Support code splitting (shadow's modules)

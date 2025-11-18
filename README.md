@@ -20,7 +20,7 @@ CSS-in-CLJS library
 ## Installation
 
 ```clojure
-{:deps {com.github.roman01la/uix.css {:mvn/version "0.3.0"}}}
+{:deps {com.github.roman01la/uix.css {:mvn/version "0.3.1"}}}
 ```
 
 ## Motivation
@@ -53,7 +53,7 @@ In the example below I'm using [UIx](https://github.com/pitch-io/uix). The libra
                           "& > strong" {:font-weight 600}})}))
 ```
 
-`uix.css/hook` build hook takes care of generating CSS and creating a bundle. 
+`uix.css/hook` build hook takes care of generating CSS and creating a bundle.
 
 ```clojure
 ;; shadow-cljs.edn
@@ -85,7 +85,7 @@ When compiled, static part of the styles map is dumped into CSS bundle, but dyna
 
 When a map of styles is passed at runtime, it will be applied as normal inline styles. This behaviour exists specifically for a case when you have UI styled with inline CSS and want to migrate to `uix.css` gradually.
 
-In this example existing `button` component was updated with `css` macro, but all usage places are still passing inline styles, meaning that updating internals of the component won't break its users. 
+In this example existing `button` component was updated with `css` macro, but all usage places are still passing inline styles, meaning that updating internals of the component won't break its users.
 
 ```clojure
 (defui button [{:keys [style children]}]
@@ -131,6 +131,7 @@ While generated class names are quite descriptive (`auix-core-L18-C20` — ns + 
 `uix.css` tries to inline constant values and pure expressions to reduce the number of dynamic styles, this is especially useful when you have a set of shared design tokens in code, like colors, font sizes, spacing, etc.
 
 In this example the value of `border-color` var will be inlined, as well as `(str "1px solid " border-color)` expression. `css` macro analyzes the code and evaluates well known functions given that their arguments are constant values.
+
 ```clojure
 (def border-color "blue")
 
@@ -164,7 +165,7 @@ Starting from v0.3.0 uix.css follows shadow's code splitting via modules. Here's
        ;; loads settings module
        (shadow.lazy/load loadable-settings))))
 
-(defui root-layout [] 
+(defui root-layout []
   ($ :div {:style (css {:padding 24})}
     ;; Suspense component displays the fallback UI while
     ;; lazy component is being loaded
@@ -199,5 +200,6 @@ Building this example will output two CSS bundles next to JavaScript bundles: `m
 Same as for splitted JavaScript, you have to load initial CSS bundle explicitly, by declaring it via `<link>` element in HTML. But for dynamically loaded modules you need to use `uix.css/load-before` function to load CSS bundle of the specified module before the module itself.
 
 ## TODO
+
 - [ ] Pluggable CSS linting
 - [ ] Server-side rendering on JVM
