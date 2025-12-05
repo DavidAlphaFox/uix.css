@@ -4,7 +4,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.github.roman01la</groupId>
   <artifactId>uix.css</artifactId>
-  <version>0.3.1</version>
+  <version>0.3.2</version>
   <name>uix.css</name>
   <licenses>
     <license>
@@ -15,7 +15,7 @@
   <scm>
     <connection>scm:git:git@github.com:roman01la/uix.css.git</connection>
     <developerConnection>scm:git:git@github.com:roman01la/uix.css.git</developerConnection>
-    <tag>6db98ae40cf987714e597ec0f90304cd8f491ea4</tag>
+    <tag>5a91894341e551e69266319cf522be8238100a5e</tag>
     <url>https://github.com/roman01la/uix.css</url>
   </scm>
   <build>
