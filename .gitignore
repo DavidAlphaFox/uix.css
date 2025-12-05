@@ -1,3 +1,5 @@
+server_render_test
+node_modules
 *.iml
 .idea
 .cpcache

@@ -10,6 +10,14 @@
             [uix.css.lib :as css.lib])
   (:import (java.io File FileNotFoundException)))
 
+(defn cljs? [env]
+  (some? (:ns env)))
+
+(defn -resolve [env v]
+  (if (cljs? env)
+    (ana-api/resolve env v)
+    (meta (resolve env v))))
+
 (defmacro debug [& body]
   `(binding [*out* *err*]
      ~@body))
@@ -169,7 +177,7 @@
     (run! #(write-bundle! % output-dir) style-modules)))
 
 (defn- build-state->styles-reg [{:keys [compiler-env]}]
-  (->> (::ana/namespaces compiler-env)
+  (->> (:cljs.analyzer/namespaces compiler-env)
        vals
        (map :uix/css)
        (apply merge)))
@@ -180,18 +188,25 @@
     (write-bundles! state config)))
 
 (defn eval-symbol [env v]
-  (let [ast (ana-api/resolve env v)]
-    (cond
-      (and (= :local (:op ast))
-           (-> ast :init :op (= :const)))
-      (-> ast :init :val)
+  (if-not (cljs? env)
+    (if-let [var (resolve env v)]
+      (if (or (number? @var) (string? @var))
+        @var
+        ::nothing)
+      (or (some-> (env v) .init .eval)
+          ::nothing))
+    (let [ast (ana-api/resolve env v)]
+      (cond
+        (and (= :local (:op ast))
+             (-> ast :init :op (= :const)))
+        (-> ast :init :val)
 
-      (= :var (:op ast))
-      (let [ast (@defs (:name ast))]
-        (when (-> ast :init :op (= :const))
-          (-> ast :init :val)))
+        (= :var (:op ast))
+        (let [ast (@defs (:name ast))]
+          (when (-> ast :init :op (= :const))
+            (-> ast :init :val)))
 
-      :else ::nothing)))
+        :else ::nothing))))
 
 (def evaluators
   {'cljs.core/inc inc
@@ -200,7 +215,15 @@
    'cljs.core/- -
    'cljs.core/* *
    'cljs.core// (comp float /)
-   'cljs.core/str str})
+   'cljs.core/str str
+
+   'inc inc
+   'dec dec
+   '+ +
+   '- -
+   '* *
+   '/ (comp float /)
+   'str str})
 
 ;; TODO: add a walker for well known forms: when, if, etc
 
@@ -209,7 +232,7 @@
 (defn eval-expr [env [f & args :as expr]]
   (cond
     (symbol? f)
-    (if-let [eval-fn (->> f (ana-api/resolve env) :name evaluators)]
+    (if-let [eval-fn (->> f (-resolve env) :name evaluators)]
       (let [args (map #(eval-css-value env %) args)]
         (if (every? (complement #{::nothing}) args)
           (apply eval-fn args)
@@ -219,31 +242,43 @@
     :else ::nothing))
 
 (defn eval-value [env v]
-  (ana-api/no-warn
-    (let [ast (ana-api/analyze env v)]
-      (if (= :const (:op ast))
-        (:val ast)
-        ::nothing))))
+  (if-not (cljs? env)
+    (if (or (number? v) (string? v))
+      v
+      ::nothing)
+    (ana-api/no-warn
+      (let [ast (ana-api/analyze env v)]
+        (if (= :const (:op ast))
+          (:val ast)
+          ::nothing)))))
 
 (def release-counter (atom 0))
 
-(defn dyn-var-name [v]
+(defn dyn-var-name [env v line]
   (if (release?)
     (str "--v" (swap! release-counter inc))
-    (let [{:keys [file line column]} (if (and (list? v)
-                                              (= 'clojure.core/deref (first v)))
-                                       (meta (second v))
-                                       (meta v))
-          ns (-> file
-                 (str/replace #"\.clj(s|c)?$" "")
-                 (str/replace #"(/|_)" "-"))]
+    (let [v (cond-> v
+              (and (list? v) (= 'clojure.core/deref (first v)))
+              second)
+          {:keys [file ns]
+           :or {file *file* ns *ns*}}
+          (if (symbol? v)
+            (-resolve env v)
+            (meta v))
+          column 0
+          ns (if ns
+               (-> (str ns) (str/replace #"\." "-"))
+               (-> file
+                   (str/replace #"\.clj(s|c)?$" "")
+                   (str/replace #"(/|_)" "-")))]
       (str "--" ns "-" line "-" column))))
 
 (defn eval-css-value [env v]
-  (cond
-    (symbol? v) (eval-symbol env v)
-    (list? v) (eval-expr env v)
-    :else (eval-value env v)))
+  (or (cond
+        (symbol? v) (eval-symbol env v)
+        (list? v) (eval-expr env v)
+        :else (eval-value env v))
+      ::nothing))
 
 (def ^:dynamic *global-context?* false)
 
@@ -262,31 +297,37 @@
   (let [loc (select-keys (meta form) [:line :column])]
     (cond-> env (seq loc) (into loc))))
 
-(defn find-dyn-styles [styles env]
-  (let [dyn-input-styles (atom {})]
+(defn find-dyn-styles [styles env line]
+  (let [dyn-input-styles (atom {})
+        line (atom line)]
     [(walk-map (fn [[k v]]
-                 (if-not (or (symbol? v) (list? v))
+                 (swap! line inc)
+                 (if-not (or (symbol? v) (list? v) (instance? clojure.lang.Cons v))
                    [k v]
                    (let [ret (eval-css-value env v)]
                      (when (and *global-context?* (= ::nothing ret))
                        (ana/warning ::global-styles-dynamic-vars (env-with-loc env v) {}))
                      (if (= ::nothing ret)
-                       (let [var-name (dyn-var-name v)]
+                       (let [var-name (dyn-var-name env v @line)]
                          (swap! dyn-input-styles assoc var-name `(uix.css.lib/interpret-value ~k ~v))
                          [k (str "var(" var-name ")")])
                        [k ret]))))
                styles)
      @dyn-input-styles]))
 
-(defn make-styles [styles env]
-  (let [ns (-> env :ns :name)
-        file (-> env :ns :meta :file)
-        {:keys [line column]} (meta styles)
+(let [env (atom {})]
+  (defn get-env []
+    (or env/*compiler* env)))
+
+(defn make-styles [styles env form]
+  (let [ns (or (-> env :ns :name) (ns-name *ns*))
+        file (or (-> env :ns :meta :file) *file*)
+        {:keys [line column]} (meta form)
         class (if (release?)
                 (str "k" (swap! release-counter inc))
-                (str (-> env :ns :name (str/replace "." "-")) "-" line "-" column))
-        [evaled-styles dyn-input-styles] (find-dyn-styles styles env)]
-    (swap! env/*compiler* assoc-in [::ana/namespaces ns :uix/css file class]
+                (str (-> ns (str/replace "." "-")) "-" line "-" column))
+        [evaled-styles dyn-input-styles] (find-dyn-styles styles env line)]
+    (swap! (get-env) assoc-in [:cljs.analyzer/namespaces ns :uix/css file class]
            {:styles evaled-styles
             :file file
             :ns ns
@@ -297,16 +338,28 @@
               :vars dyn-input-styles}}))
 
 (defmacro css [& styles]
-  (binding [*build-state* (:shadow.build.cljs-bridge/state @env/*compiler*)]
-    (let [styles (->> styles
-                      (mapv (fn [v]
-                              (if (map? v)
-                                `(cljs.core/array ~(make-styles v &env))
-                                `(let [v# ~v]
-                                   (if (map? v#)
-                                     (cljs.core/array v#)
-                                     v#))))))]
-      `(.concat ~@styles))))
+  (if (cljs? &env)
+    (binding [*build-state* (:shadow.build.cljs-bridge/state @env/*compiler*)]
+      (let [styles (->> styles
+                        (mapv (fn [v]
+                                (if (map? v)
+                                  `(cljs.core/array ~(make-styles v &env &form))
+                                  `(let [v# ~v]
+                                     (if (map? v#)
+                                       (cljs.core/array v#)
+                                       v#))))))]
+        `(.concat ~@styles)))
+    (binding [*build-state* (atom {})]
+      (let [styles (->> styles
+                        (mapv (fn [v]
+                                (if (map? v)
+                                  [(make-styles v &env &form)]
+                                  `(let [v# ~v]
+                                     (if (map? v#)
+                                       [v#]
+                                       v#))))))]
+        `(vec (concat ~@styles))))))
+
 
 (defn hook
   {:shadow.build/stage :compile-finish}
@@ -328,3 +381,14 @@
                            (str asset-path "/" (str/replace (:module-name %) #"\.js$" ".css")))))]
     `(-> (load-stylesheet ~path)
          (.then (fn [] ~promise)))))
+
+(comment
+  (require '[uix.core :refer [$]])
+  (require 'uix.dom.server)
+
+  (def xx (atom 90))
+  (let [x (atom 1)]
+    (css {:font-size "14px" :flex (+ @xx 89)})
+    (uix.dom.server/render-to-string
+      ($ :div.flex.flex-col.items-center {:style (css {:font-size "14px" :flex (+ @xx 89)})}
+         ($ :ul.flex.gap-2.text-sm.py-1.font-medium)))))

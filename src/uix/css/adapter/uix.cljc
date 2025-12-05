@@ -1,0 +1,53 @@
+(ns uix.css.adapter.uix
+  (:require #?@(:cljs [[uix.compiler.alpha]
+                       [uix.compiler.attributes :as uix.attrs]])
+            #?@(:clj [[uix.dom.server]
+                      [uix.css.lib]])))
+
+;; uix.css adapter
+;; 1. Intercepts element creation
+;; 2. Extracts `uixCssClass` and `uixCssVars` fields from `props.style`
+;; 3. Merges generated class name with the rest of class names in `props.className` field
+;; 4. Merges generated CSS Vars map with the rest of styles in `props.style` object
+
+#?(:cljs
+    (defonce create-element uix.compiler.alpha/create-element))
+
+#?(:cljs
+    (set! uix.compiler.alpha/create-element
+          (fn [args children]
+            (when-let [^js props (aget args 1)]
+              (when (and (uix.compiler.alpha/pojo? props)
+                         (js/Array.isArray (.-style props)))
+                (let [class-names #js []
+                      inline-styles (atom {})]
+                  (doseq [style (.-style props)]
+                    (if (:uixCss style)
+                      (let [{:keys [class vars]} (:uixCss style)]
+                        (.push class-names class)
+                        (swap! inline-styles into vars))
+                      (swap! inline-styles into style)))
+                  (set! (.-className props)
+                        (uix.attrs/class-names (.-className props) class-names))
+                  (set! (.-style props)
+                        (uix.compiler.attributes/convert-prop-value-shallow @inline-styles)))))
+            (create-element args children))))
+
+#?(:clj
+   (alter-var-root #'uix.dom.server/render-attrs!
+     (fn [f]
+       (fn [tag attrs sb]
+         (let [props (atom attrs)]
+           (when (vector? (:style attrs))
+             (let [class-names (atom [])
+                   inline-styles (atom {})]
+               (doseq [style (:style attrs)]
+                 (if (:uixCss style)
+                   (let [{:keys [class vars]} (:uixCss style)]
+                     (swap! class-names conj class)
+                     (swap! inline-styles into vars))
+                   (swap! inline-styles into style)))
+               (swap! props assoc :class
+                 (uix.css.lib/class-names (:class attrs) @class-names))
+               (swap! props assoc :style @inline-styles)))
+           (f tag @props sb))))))

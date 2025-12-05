@@ -1,0 +1,29 @@
+{
+  "name": "uix.css",
+  "version": "1.0.0",
+  "description": "<img src=\"logo.svg\" width=\"128\" />",
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/roman01la/uix.css.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/roman01la/uix.css/issues"
+  },
+  "homepage": "https://github.com/roman01la/uix.css#readme",
+  "dependencies": {
+    "process": "^0.11.10",
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1",
+    "source-map-support": "^0.5.21"
+  }
+}

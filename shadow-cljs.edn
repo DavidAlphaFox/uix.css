@@ -1,6 +1,8 @@
 {:deps true
  :builds {:test
-          {:target :browser
+          {:target :node-script
            :output-dir "out"
+           :output-to "out/test.js"
+           :main core-test-sample/-main
            :build-hooks [(uix.css/hook)]
-           :modules {:test {:entries [core-test]}}}}}
+           :modules {:test {:entries [core-test-sample]}}}}}
