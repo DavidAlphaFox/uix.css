@@ -20,7 +20,7 @@ CSS-in-CLJS library
 ## Installation
 
 ```clojure
-{:deps {com.github.roman01la/uix.css {:mvn/version "0.3.2"}}}
+{:deps {com.github.roman01la/uix.css {:mvn/version "0.4.0"}}}
 ```
 
 ## Motivation
@@ -199,7 +199,8 @@ Building this example will output two CSS bundles next to JavaScript bundles: `m
 
 Same as for splitted JavaScript, you have to load initial CSS bundle explicitly, by declaring it via `<link>` element in HTML. But for dynamically loaded modules you need to use `uix.css/load-before` function to load CSS bundle of the specified module before the module itself.
 
-## TODO
+## Server-side rendering
 
-- [ ] Pluggable CSS linting
-- [ ] Server-side rendering on JVM
+Since v0.4.0 uix.css supports server rendering on JVM, which plays nicely with [UIx SSR support](https://github.com/pitch-io/uix/blob/master/docs/server-side-rendering.md).
+
+No extra setup is required. When rendering UIx components in Clojure JVM, the `css` macro won't build styles. Intead it will just emit class names needed at runtime in a browser, where prebuilt CSS is loaded.

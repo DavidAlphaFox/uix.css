@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.0
+
+- Added support for SSR on JVM
+
 ## 0.3.1
 
 - Added Reagent adapter
